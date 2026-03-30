@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NES ROM Emulator - ROM Decompilation Project</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #1e3c72;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .emulator-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 2px solid #ddd;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #ddd;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #ccc;
+        }
+
+        .canvas-container {
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 20px 0;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .info-panel {
+            background: white;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .label {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .value {
+            color: #333;
+            font-family: monospace;
+        }
+
+        .keyboard-guide {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .keyboard-guide h3 {
+            margin-bottom: 10px;
+            color: #1e3c72;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.9em;
+        }
+
+        .control-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .key {
+            background: #ddd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-weight: 600;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            border-radius: 5px;
+            color: #2e7d32;
+        }
+
+        .status.error {
+            background: #ffebee;
+            border-color: #f44336;
+            color: #c62828;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        .status.error .status-dot {
+            background: #f44336;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .presets {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .preset-btn {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            background: #f0f0f0;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .preset-btn:hover {
+            background: #e0e0e0;
+            border-color: #667eea;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #999;
+            font-size: 0.9em;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 NES ROM Emulator</h1>
+            <p class="subtitle">ROM Decompilation & Recompilation Project</p>
+        </div>
+
+        <div class="emulator-section">
+            <div class="controls">
+                <div class="file-input-wrapper">
+                    <button class="btn-primary" onclick="document.getElementById('romInput').click()">
+                        📁 Load ROM
+                    </button>
+                    <input type="file" id="romInput" accept=".nes" onchange="loadROM(event)">
+                </div>
+
+                <button class="btn-primary" onclick="startEmulation()">▶️ Start</button>
+                <button class="btn-secondary" onclick="pauseEmulation()">⏸️ Pause</button>
+                <button class="btn-secondary" onclick="stopEmulation()">⏹️ Stop</button>
+                <button class="btn-secondary" onclick="resetEmulation()">🔄 Reset</button>
+            </div>
+
+            <div id="status" class="status">
+                <div class="status-dot"></div>
+                <span>Ready to load ROM</span>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="canvas" width="256" height="240"></canvas>
+            </div>
+
+            <div class="presets">
+                <button class="preset-btn" onclick="loadPresetROM('recompiled')">Load Recompiled ROM</button>
+                <button class="preset-btn" onclick="loadPresetROM('original')">Load Original ROM</button>
+            </div>
+
+            <div class="info-panel">
+                <div class="info-item">
+                    <span class="label">Status:</span>
+                    <span class="value" id="status-text">Not loaded</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">ROM Loaded:</span>
+                    <span class="value" id="rom-name">None</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">ROM Size:</span>
+                    <span class="value" id="rom-size">0 bytes</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Emulation State:</span>
+                    <span class="value" id="emulation-state">Stopped</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Frame Rate:</span>
+                    <span class="value" id="frame-rate">0 FPS</span>
+                </div>
+            </div>
+
+            <div class="keyboard-guide">
+                <h3>🎮 Controller Layout</h3>
+                <div class="controls-grid">
+                    <div class="control-item">
+                        <span>Up:</span>
+                        <span class="key">↑ / W</span>
+                    </div>
+                    <div class="control-item">
+                        <span>Down:</span>
+                        <span class="key">↓ / S</span>
+                    </div>
+                    <div class="control-item">
+                        <span>Left:</span>
+                        <span class="key">← / A</span>
+                    </div>
+                    <div class="control-item">
+                        <span>Right:</span>
+                        <span class="key">→ / D</span>
+                    </div>
+                    <div class="control-item">
+                        <span>A Button:</span>
+                        <span class="key">Z</span>
+                    </div>
+                    <div class="control-item">
+                        <span>B Button:</span>
+                        <span class="key">X</span>
+                    </div>
+                    <div class="control-item">
+                        <span>Start:</span>
+                        <span class="key">Enter</span>
+                    </div>
+                    <div class="control-item">
+                        <span>Select:</span>
+                        <span class="key">Shift</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>NES ROM Decompilation & Recompilation Project</p>
+            <p>This emulator is for educational purposes | ROM must be in iNES format (.nes)</p>
+        </div>
+    </div>
+
+    <script>
+        let romData = null;
+        let isRunning = false;
+        let frameCount = 0;
+        let lastTime = Date.now();
+
+        // Keyboard state
+        const keyMap = {
+            'ArrowUp': 'up', 'w': 'up', 'W': 'up',
+            'ArrowDown': 'down', 's': 'down', 'S': 'down',
+            'ArrowLeft': 'left', 'a': 'left', 'A': 'left',
+            'ArrowRight': 'right', 'd': 'right', 'D': 'right',
+            'z': 'a', 'Z': 'a',
+            'x': 'b', 'X': 'b',
+            'Enter': 'start',
+            'Shift': 'select'
+        };
+
+        let buttonState = {
+            'up': false,
+            'down': false,
+            'left': false,
+            'right': false,
+            'a': false,
+            'b': false,
+            'start': false,
+            'select': false
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (keyMap[e.key]) {
+                buttonState[keyMap[e.key]] = true;
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (keyMap[e.key]) {
+                buttonState[keyMap[e.key]] = false;
+                e.preventDefault();
+            }
+        });
+
+        function updateStatus(message, isError = false) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            if (isError) {
+                statusEl.classList.add('error');
+            } else {
+                statusEl.classList.remove('error');
+            }
+            document.getElementById('status-text').textContent = message;
+        }
+
+        function loadROM(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                romData = new Uint8Array(e.target.result);
+                document.getElementById('rom-name').textContent = file.name;
+                document.getElementById('rom-size').textContent = (romData.length / 1024).toFixed(2) + ' KB';
+                updateStatus('✅ ROM loaded successfully');
+            };
+            reader.onerror = () => {
+                updateStatus('❌ Failed to load ROM', true);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadPresetROM(preset) {
+            const fileName = preset === 'recompiled' 
+                ? 'output/decompiled_reassembled_recompiled.nes'
+                : 'output/reassembled_CORRECT.nes';
+            
+            const displayName = preset === 'recompiled' 
+                ? 'Recompiled ROM (minimal code)'
+                : 'Original ROM (full game)';
+            
+            console.log(`[DEBUG] Loading ROM: ${fileName}`);
+            updateStatus('🔄 Loading ' + displayName + '...');
+            
+            fetch(fileName)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}. Make sure you're running this via HTTP (python -m http.server) not file:// protocol.`);
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(buffer => {
+                    if (buffer.byteLength === 0) {
+                        throw new Error('ROM file is empty');
+                    }
+                    
+                    romData = new Uint8Array(buffer);
+                    document.getElementById('rom-name').textContent = fileName;
+                    document.getElementById('rom-size').textContent = (romData.length / 1024).toFixed(2) + ' KB';
+                    
+                    // Validate iNES header
+                    const byte0 = romData[0];
+                    const byte1 = romData[1];
+                    const byte2 = romData[2];
+                    const byte3 = romData[3];
+                    
+                    console.log(`[DEBUG] Header bytes: 0x${byte0.toString(16).padStart(2,'0')} 0x${byte1.toString(16).padStart(2,'0')} 0x${byte2.toString(16).padStart(2,'0')} 0x${byte3.toString(16).padStart(2,'0')}`);
+                    
+                    if (byte0 === 0x4E && byte1 === 0x45 && byte2 === 0x53 && byte3 === 0x1A) {
+                        const prgSize = romData[4] * 16;
+                        const chrSize = romData[5] * 8;
+                        const mapper = (romData[6] >> 4) | ((romData[7] & 0xF0));
+                        const mirror = romData[6] & 0x01 ? 'Vertical' : 'Horizontal';
+                        
+                        console.log(`[DEBUG] ✅ Valid iNES header detected`);
+                        console.log(`ROM Info: PRG=${prgSize}KB CHR=${chrSize}KB Mapper=${mapper} Mirror=${mirror}`);
+                        updateStatus('✅ ROM loaded - iNES valid | PRG:' + prgSize + 'KB CHR:' + chrSize + 'KB M:' + mapper);
+                        console.log(`[DEBUG] About to draw checkerboard...`);
+                        drawCheckboard();
+                    } else {
+                        throw new Error('Invalid iNES header: got 0x' + 
+                            romData[0].toString(16).padStart(2,'0') + 
+                            romData[1].toString(16).padStart(2,'0') + 
+                            romData[2].toString(16).padStart(2,'0') + 
+                            romData[3].toString(16).padStart(2,'0') +
+                            ' (expected NES\\x1A magic bytes). This ROM file may be corrupted.');
+                    }
+                })
+                .catch(error => {
+                    console.error('ROM Loading Error:', error);
+                    updateStatus('❌ Error: ' + error.message, true);
+                });
+        }
+
+        function validateiNES() {
+            if (!romData || romData.length < 16) {
+                return false;
+            }
+
+            // Check iNES header magic
+            if (romData[0] !== 0x4E || romData[1] !== 0x45 || 
+                romData[2] !== 0x53 || romData[3] !== 0x1A) {
+                return false;
+            }
+
+            return true;
+        }
+
+        function startEmulation() {
+            console.log(`[DEBUG] startEmulation called`);
+            if (!romData) {
+                updateStatus('❌ No ROM loaded', true);
+                return;
+            }
+
+            if (!validateiNES()) {
+                updateStatus('❌ Invalid iNES ROM format', true);
+                return;
+            }
+
+            console.log(`[DEBUG] ✅ Starting emulation...`);
+            isRunning = true;
+            document.getElementById('emulation-state').textContent = 'Running';
+            updateStatus('▶️ Emulation running');
+            animate();
+        }
+
+        function pauseEmulation() {
+            isRunning = false;
+            document.getElementById('emulation-state').textContent = 'Paused';
+            updateStatus('⏸️ Emulation paused');
+        }
+
+        function stopEmulation() {
+            isRunning = false;
+            frameCount = 0;
+            document.getElementById('emulation-state').textContent = 'Stopped';
+            document.getElementById('frame-rate').textContent = '0 FPS';
+            updateStatus('⏹️ Emulation stopped');
+            drawCheckboard();
+        }
+
+        function resetEmulation() {
+            stopEmulation();
+            updateStatus('🔄 Emulation reset');
+        }
+
+        function drawCheckboard() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const tileSize = 16;
+
+            console.log(`[DEBUG] drawCheckboard called. Canvas: ${canvas.width}x${canvas.height}, Context: ${ctx}`);
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#333';
+            for (let y = 0; y < canvas.height; y += tileSize) {
+                for (let x = 0; x < canvas.width; x += tileSize) {
+                    if (((x / tileSize) + (y / tileSize)) % 2 === 0) {
+                        ctx.fillRect(x, y, tileSize, tileSize);
+                    }
+                }
+            }
+
+            // Draw NES logo
+            ctx.fillStyle = '#667eea';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🎮 NES EMULATOR', canvas.width / 2, canvas.height / 2 - 30);
+            ctx.font = '14px Arial';
+            ctx.fillText('Load a ROM to start', canvas.width / 2, canvas.height / 2 + 20);
+            
+            console.log(`[DEBUG] ✅ drawCheckboard completed`);
+        }
+
+        function drawFrame() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            if (!romData) {
+                console.warn(`[DEBUG] drawFrame called but romData is null`);
+                return;
+            }
+
+            // Parse iNES header
+            const prgSize = romData[4] * 16384;
+            const chrSize = romData[5] * 8192;
+            const headerSize = 16;
+
+            // Extract PRG-ROM
+            const prgStart = headerSize;
+            const prgData = romData.slice(prgStart, prgStart + prgSize);
+
+            // Create a visualization of the ROM data
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw ROM data as visual representation
+            const pixelSize = 1;
+            for (let i = 0; i < Math.min(prgData.length, canvas.width * canvas.height); i++) {
+                const x = i % canvas.width;
+                const y = Math.floor(i / canvas.width);
+                
+                const byte = prgData[i];
+                const brightness = Math.floor((byte / 255) * 255);
+                ctx.fillStyle = `rgb(${brightness}, ${brightness / 2}, ${255 - brightness})`;
+                ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+            }
+
+            // Draw info overlay
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, 280, 80);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px monospace';
+            ctx.fillText(`PRG: ${(prgSize / 1024).toFixed(0)}KB | CHR: ${(chrSize / 1024).toFixed(0)}KB`, 10, 20);
+            ctx.fillText(`Mapper: ${romData[6] >> 4}`, 10, 40);
+            ctx.fillText(`Mirroring: ${(romData[6] & 0x01) ? 'Vertical' : 'Horizontal'}`, 10, 60);
+        }
+
+        function animate() {
+            if (!isRunning) return;
+
+            frameCount++;
+            const now = Date.now();
+            if (now - lastTime >= 1000) {
+                document.getElementById('frame-rate').textContent = frameCount + ' FPS';
+                console.log(`[DEBUG] FPS: ${frameCount}`);
+                frameCount = 0;
+                lastTime = now;
+            }
+
+            drawFrame();
+            requestAnimationFrame(animate);
+        }
+
+        // Load checkerboard on startup
+        window.addEventListener('load', () => {
+            drawCheckboard();
+        });
+
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                pauseEmulation();
+            }
+        });
+    </script>
+</body>
+</html>

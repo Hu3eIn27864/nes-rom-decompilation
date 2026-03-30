@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ROM Fetch Debug</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f0f0f0; }
+        .test { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #ddd; }
+        .test.success { border-color: #4caf50; }
+        .test.error { border-color: #f44336; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #667eea; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #5568d3; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 ROM Fetch Debug</h1>
+    
+    <button onclick="testROM('output/reassembled_CORRECT.nes')">Test Original ROM</button>
+    <button onclick="testROM('output/decompiled_reassembled_recompiled.nes')">Test Recompiled ROM</button>
+    <button onclick="document.getElementById('results').innerHTML = ''">Clear Results</button>
+
+    <div id="results"></div>
+
+    <script>
+        async function testROM(urlPath) {
+            const resultDiv = document.getElementById('results');
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test';
+            
+            const fileName = urlPath.split('/').pop();
+            testDiv.innerHTML = `<h3>Testing: ${fileName}</h3><p>Fetching...</p>`;
+            resultDiv.appendChild(testDiv);
+
+            try {
+                const response = await fetch(urlPath);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const bytes = new Uint8Array(arrayBuffer);
+
+                console.log(`${fileName} loaded:`, bytes);
+
+                if (bytes.length === 0) {
+                    throw new Error('File is empty');
+                }
+
+                // Check iNES header
+                const magic = String.fromCharCode(bytes[0], bytes[1], bytes[2]);
+                const iNESCheck = bytes[3] === 0x1A;
+                const isValidNES = magic === 'NES' && iNESCheck;
+
+                const prgSize = bytes[4] * 16;
+                const chrSize = bytes[5] * 8;
+                const mapper = (bytes[6] >> 4) | ((bytes[7] & 0xF0));
+                const mirroring = (bytes[6] & 0x01) ? 'Vertical' : 'Horizontal';
+
+                const headerHex = Array.from(bytes.slice(0, 16))
+                    .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+                    .join(' ');
+
+                testDiv.className = 'test success';
+                testDiv.innerHTML = `
+                    <h3>✅ ${fileName}</h3>
+                    <p><strong>File Size:</strong> ${(bytes.length / 1024).toFixed(2)} KB</p>
+                    <p><strong>Header (hex):</strong> <code>${headerHex}</code></p>
+                    <p><strong>Magic Bytes:</strong> "${magic}" + 0x${bytes[3].toString(16).toUpperCase()}</p>
+                    <p><strong>Valid iNES:</strong> ${isValidNES ? '✅ YES' : '❌ NO'}</p>
+                    ${isValidNES ? `
+                        <p><strong>PRG-ROM:</strong> ${bytes[4]} pages × 16KB = ${prgSize}KB</p>
+                        <p><strong>CHR-ROM:</strong> ${bytes[5]} pages × 8KB = ${chrSize}KB</p>
+                        <p><strong>Mapper:</strong> ${mapper}</p>
+                        <p><strong>Mirroring:</strong> ${mirroring}</p>
+                    ` : ''}
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                testDiv.className = 'test error';
+                testDiv.innerHTML = `
+                    <h3>❌ ${fileName}</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <details>
+                        <summary>Stack Trace</summary>
+                        <pre>${error.stack}</pre>
+                    </details>
+                `;
+            }
+        }
+
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            console.log('Debug page loaded. Click buttons to test ROMs.');
+            console.log('Current URL:', window.location.href);
+        });
+    </script>
+</body>
+</html>
